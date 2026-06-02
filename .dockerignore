@@ -1,0 +1,14 @@
+# Keep the build context tiny — only Cargo manifests + src are needed (see Dockerfile).
+target/
+.git/
+.github/
+.gitignore
+.dockerignore
+Dockerfile
+*.md
+.env
+.env.example
+samples/
+storage/
+docs/
+tests/

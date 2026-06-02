@@ -1,0 +1,9 @@
+/target
+
+# generated sample artifacts
+/samples
+
+# local environment overrides (may hold secrets like SIGNING_KEY)
+/.env
+/docs
+CLAUDE.md
