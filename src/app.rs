@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use axum::Router;
 use opendal::Operator;
+use tokio::sync::Semaphore;
 
 use crate::config::Config;
 
@@ -9,6 +10,7 @@ use crate::config::Config;
 pub struct AppState {
     pub config: Arc<Config>,
     pub operator: Option<Operator>,
+    pub render_limiter: Arc<Semaphore>,
 }
 
 pub fn build_state(config: Config) -> Result<AppState, String> {
@@ -21,6 +23,7 @@ pub fn build_state(config: Config) -> Result<AppState, String> {
         None
     };
     Ok(AppState {
+        render_limiter: Arc::new(Semaphore::new(config.max_concurrent_renders)),
         config: Arc::new(config),
         operator,
     })

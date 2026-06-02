@@ -6,7 +6,7 @@ use browserless_html_to_pdf::{app, config};
 async fn main() {
     let _ = dotenvy::dotenv();
 
-    let config = config::Config::from_env();
+    let config = config::Config::from_env().expect("invalid configuration");
     let port = config.port;
 
     let state = app::build_state(config).expect("failed to build app state");

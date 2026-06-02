@@ -41,3 +41,11 @@ pub async fn body_text(res: Response<Body>) -> String {
         .unwrap();
     String::from_utf8_lossy(&bytes).into_owned()
 }
+
+pub fn future_expires() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs()
+        + 3600
+}

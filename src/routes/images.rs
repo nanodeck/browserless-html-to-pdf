@@ -8,7 +8,9 @@ use base64::Engine;
 
 use crate::app::AppState;
 use crate::error::AppError;
-use crate::models::dto::{ImageFormat, ImageItem, ImageRequest, ImagesResponse, parse_pages};
+use crate::models::dto::{
+    ImageFormat, ImageItem, ImageRequest, ImagesResponse, parse_pages, validate_scale,
+};
 use crate::routes::pdf::now_unix;
 use crate::services::pdf_to_image::{RenderOptions, render_pdf};
 use crate::services::storage;
@@ -38,6 +40,12 @@ pub async fn create_images(
     let max_pages = state.config.max_image_pages;
     let spec_empty = pages_spec.trim().is_empty();
 
+    let _permit = state
+        .render_limiter
+        .clone()
+        .acquire_owned()
+        .await
+        .map_err(|_| AppError::Internal("render limiter closed".into()))?;
     let render = move || -> Result<Vec<crate::services::pdf_to_image::RenderedImage>, String> {
         let pdf = hayro::hayro_syntax::Pdf::new(pdf_bytes.clone())
             .map_err(|e| format!("failed to parse PDF: {e:?}"))?;
@@ -145,19 +153,34 @@ async fn parse_multipart(
             }
             "format" => {
                 let v = field.text().await.unwrap_or_default();
-                format = if v.eq_ignore_ascii_case("jpeg") {
-                    ImageFormat::Jpeg
-                } else {
-                    ImageFormat::Png
+                format = match v.to_ascii_lowercase().as_str() {
+                    "png" => ImageFormat::Png,
+                    "jpeg" => ImageFormat::Jpeg,
+                    other => {
+                        return Err(AppError::Validation(format!(
+                            "unsupported image format '{other}'"
+                        )));
+                    }
                 };
             }
-            "scale" => scale = field.text().await.ok().and_then(|v| v.parse().ok()),
+            "scale" => {
+                let value = field
+                    .text()
+                    .await
+                    .map_err(|e| AppError::BadRequest(format!("scale read: {e}")))?;
+                scale = Some(
+                    value
+                        .parse()
+                        .map_err(|_| AppError::Validation(format!("invalid scale '{value}'")))?,
+                );
+            }
             "pages" => pages = field.text().await.unwrap_or_default(),
             _ => {}
         }
     }
 
     let factor = scale.unwrap_or(1.0);
+    validate_scale(factor).map_err(AppError::Validation)?;
     let pdf = pdf.ok_or_else(|| AppError::Validation("multipart `file` part required".into()))?;
     Ok((pdf, format, factor, pages))
 }

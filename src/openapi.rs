@@ -54,13 +54,13 @@ pub fn spec() -> Value {
                         "properties": {
                             "file": { "type": "string", "format": "binary", "description": "PDF file to rasterize" },
                             "format": { "type": "string", "enum": ["png", "jpeg"] },
-                            "scale": { "type": "number" },
+                            "scale": { "type": "number", "exclusiveMinimum": 0, "maximum": 1.0 },
                             "pages": { "type": "string", "examples": ["1-3,5"] } } } },
                     "application/json": { "schema": { "type": "object", "required": ["pdf_base64"],
                         "properties": {
                             "pdf_base64": { "type": "string" },
                             "format": { "type": "string", "enum": ["png", "jpeg"] },
-                            "scale": { "type": "number" },
+                            "scale": { "type": "number", "exclusiveMinimum": 0, "maximum": 1.0 },
                             "pages": { "type": "string", "examples": ["1-3,5"] } } } } } },
                 "responses": { "200": { "description": "Images (base64) or signed downloadUrls" },
                     "422": { "description": "Validation error" } } } }

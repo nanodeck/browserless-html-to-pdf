@@ -66,11 +66,28 @@ impl ImageFormat {
 
 impl ImageRequest {
     pub fn validate(&self) -> Result<(), String> {
+        if let Some(scale) = self.scale {
+            validate_scale(scale)?;
+        }
         Ok(())
     }
     pub fn scale_factor(&self) -> f32 {
         self.scale.unwrap_or(1.0)
     }
+}
+
+pub fn validate_scale(scale: f32) -> Result<(), String> {
+    const MAX_SCALE: f32 = 1.0;
+
+    if !scale.is_finite() {
+        return Err("scale must be finite".into());
+    }
+    if scale <= 0.0 || scale > MAX_SCALE {
+        return Err(format!(
+            "scale must be greater than 0 and at most {MAX_SCALE}"
+        ));
+    }
+    Ok(())
 }
 
 #[derive(Debug, Serialize)]
@@ -210,6 +227,22 @@ mod tests {
     fn image_request_defaults_scale_to_one() {
         let r: ImageRequest = serde_json::from_str(r#"{"pdf_base64":"AA=="}"#).unwrap();
         assert_eq!(r.scale_factor(), 1.0);
+    }
+
+    #[test]
+    fn image_request_rejects_unsafe_scale() {
+        let mut r: ImageRequest =
+            serde_json::from_str(r#"{"pdf_base64":"AA==","scale":0}"#).unwrap();
+        assert!(r.validate().is_err());
+
+        r.scale = Some(1.1);
+        assert!(r.validate().is_err());
+    }
+
+    #[test]
+    fn image_request_accepts_scale_one() {
+        let r: ImageRequest = serde_json::from_str(r#"{"pdf_base64":"AA==","scale":1}"#).unwrap();
+        assert!(r.validate().is_ok());
     }
 
     #[test]
