@@ -1,6 +1,5 @@
 ![Build](https://github.com/nanodeck/browserless-html-to-pdf/actions/workflows/release.yml/badge.svg)
 ![License: MIT](https://img.shields.io/github/license/nanodeck/browserless-html-to-pdf)
-![Rust](https://img.shields.io/badge/Rust-2024-orange?logo=rust)
 ![Docker](https://img.shields.io/badge/ghcr.io-nanodeck%2Fbrowserless--html--to--pdf-blue?logo=docker)
 
 # Browserless HTML to PDF
