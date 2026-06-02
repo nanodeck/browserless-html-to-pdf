@@ -1,7 +1,7 @@
 mod common;
 use axum::http::StatusCode;
-use browserless_html_to_pdf::test_app;
-use common::{body_json, post_json};
+use browserless_html_to_pdf::{services::storage, test_app};
+use common::{body_json, get, post_json};
 
 #[tokio::test]
 async fn storage_off_returns_inline_data() {
@@ -28,4 +28,24 @@ async fn storage_on_returns_signed_url() {
     let url = v["downloadUrl"].as_str().unwrap();
     assert!(url.contains("/downloads/pdfs/"));
     assert!(url.contains("sig="));
+}
+
+#[tokio::test]
+async fn missing_download_returns_not_found() {
+    let dir = std::env::temp_dir().join(format!("h2p-test-missing-{}", std::process::id()));
+    let app = test_app(&[
+        ("STORAGE_ENABLED", "true"),
+        ("OPENDAL_SCHEME", "fs"),
+        ("OPENDAL_ROOT", dir.to_str().unwrap()),
+        ("SIGNING_KEY", "test-key"),
+    ]);
+    let key = "pdfs/missing/report.pdf";
+    let expires = crate::common::future_expires();
+    let sig = storage::sign(b"test-key", key, expires);
+    let res = get(
+        app,
+        &format!("/downloads/{key}?expires={expires}&sig={sig}"),
+    )
+    .await;
+    assert_eq!(res.status(), StatusCode::NOT_FOUND);
 }

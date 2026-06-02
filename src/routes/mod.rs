@@ -22,7 +22,7 @@ pub fn routes(state: AppState) -> Router {
 
     let governor = Arc::new(
         GovernorConfigBuilder::default()
-            .per_second(60)
+            .period(Duration::from_secs(60))
             .burst_size(state.config.rate_limit_per_min)
             .finish()
             .expect("governor config"),

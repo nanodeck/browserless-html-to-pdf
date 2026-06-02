@@ -76,11 +76,11 @@ Accepts either a JSON body or `multipart/form-data` file upload.
 ```bash
 curl -X POST http://localhost:3000/v1/images \
   -H 'content-type: application/json' \
-  -d '{"pdf_base64":"<base64-pdf>","format":"png","scale":1.5,"pages":"1-3"}'
+  -d '{"pdf_base64":"<base64-pdf>","format":"png","scale":1,"pages":"1-3"}'
 ```
 
 - `format` — `png` (default) or `jpeg`
-- `scale` — render scale factor (default `1.0`)
+- `scale` — render scale factor greater than `0` and up to `1.0` (default `1.0`)
 - `pages` — selection like `1,3,5-7` (default: all pages)
 
 ## Configuration
@@ -101,6 +101,7 @@ See [`.env.example`](.env.example) for the full list.
 | `MAX_HTML_BYTES`     | `2097152`                | `/v1/pdf` HTML cap (`413` over limit)                  |
 | `MAX_IMAGE_PAGES`    | `10`                     | `/v1/images` page cap                                  |
 | `RATE_LIMIT_PER_MIN` | `60`                     | Per-IP request cap                                     |
+| `MAX_CONCURRENT_RENDERS` | `4`                  | Maximum concurrent CPU-bound render jobs               |
 
 ## Fonts
 

@@ -8,6 +8,7 @@ pub enum AppError {
     BadRequest(String),
     PayloadTooLarge { max: usize, actual: usize },
     Validation(String),
+    NotFound(String),
     Internal(String),
 }
 
@@ -31,8 +32,16 @@ impl IntoResponse for AppError {
             AppError::Validation(m) => {
                 (StatusCode::UNPROCESSABLE_ENTITY, Json(json!({ "error": m }))).into_response()
             }
+            AppError::NotFound(m) => {
+                (StatusCode::NOT_FOUND, Json(json!({ "error": m }))).into_response()
+            }
             AppError::Internal(m) => {
-                (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "error": m }))).into_response()
+                eprintln!("internal error: {m}");
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(json!({ "error": "internal server error" })),
+                )
+                    .into_response()
             }
         }
     }
@@ -74,5 +83,19 @@ mod tests {
             AppError::Internal("x".into()).into_response().status(),
             StatusCode::INTERNAL_SERVER_ERROR
         );
+        assert_eq!(
+            AppError::NotFound("x".into()).into_response().status(),
+            StatusCode::NOT_FOUND
+        );
+    }
+
+    #[tokio::test]
+    async fn internal_errors_do_not_leak_details() {
+        let res = AppError::Internal("secret backend detail".into()).into_response();
+        let bytes = axum::body::to_bytes(res.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let body = String::from_utf8(bytes.to_vec()).unwrap();
+        assert!(!body.contains("secret backend detail"));
     }
 }

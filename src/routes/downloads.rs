@@ -2,6 +2,7 @@ use axum::body::Body;
 use axum::extract::{Path, Query, State};
 use axum::http::{StatusCode, header};
 use axum::response::{IntoResponse, Response};
+use opendal::ErrorKind;
 use serde::Deserialize;
 
 use crate::app::AppState;
@@ -33,7 +34,13 @@ pub async fn serve(
     let bytes = op
         .read(&key)
         .await
-        .map_err(|_| AppError::Internal("not found".into()))?
+        .map_err(|err| {
+            if err.kind() == ErrorKind::NotFound {
+                AppError::NotFound("not found".into())
+            } else {
+                AppError::Internal(format!("storage read failed: {err}"))
+            }
+        })?
         .to_vec();
 
     let ct = if key.ends_with(".pdf") {

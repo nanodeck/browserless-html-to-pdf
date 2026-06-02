@@ -32,6 +32,12 @@ pub async fn create_pdf(
     };
     let html = req.html;
 
+    let _permit = state
+        .render_limiter
+        .clone()
+        .acquire_owned()
+        .await
+        .map_err(|_| AppError::Internal("render limiter closed".into()))?;
     let pdf = tokio::task::spawn_blocking(move || render_html(&html, &opts))
         .await
         .map_err(|e| AppError::Internal(format!("render task panicked: {e}")))?
