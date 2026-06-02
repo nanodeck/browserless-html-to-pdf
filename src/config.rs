@@ -2,6 +2,9 @@ use std::collections::HashMap;
 use std::fmt;
 use std::str::FromStr;
 
+const MAX_URL_TTL_SECS: u64 = 7 * 24 * 60 * 60;
+const MIN_SIGNING_KEY_BYTES: usize = 32;
+
 #[derive(Clone, Debug)]
 pub struct Config {
     pub port: u16,
@@ -63,19 +66,19 @@ impl Config {
             }
         }
 
-        let signing_key = get("SIGNING_KEY")
-            .map(|s| s.into_bytes())
-            .unwrap_or_else(|| uuid::Uuid::new_v4().as_bytes().to_vec());
+        let storage_enabled = get("STORAGE_ENABLED").as_deref() == Some("true");
+        let scheme = get("OPENDAL_SCHEME").unwrap_or_else(|| "fs".into());
+        let signing_key = signing_key(get("SIGNING_KEY"), storage_enabled, &scheme)?;
 
         Ok(Config {
             port: checked_u16(parse("PORT", 3000)?, "PORT")?,
-            storage_enabled: get("STORAGE_ENABLED").as_deref() == Some("true"),
-            scheme: get("OPENDAL_SCHEME").unwrap_or_else(|| "fs".into()),
+            storage_enabled,
+            scheme,
             opendal_opts,
             public_base_url: get("PUBLIC_BASE_URL")
                 .unwrap_or_else(|| "http://localhost:3000".into()),
             signing_key,
-            url_ttl_secs: parse("URL_TTL_SECS", 3600)?,
+            url_ttl_secs: checked_url_ttl(parse("URL_TTL_SECS", 3600)?)?,
             max_body_bytes: checked_usize(
                 parse("MAX_BODY_BYTES", 8 * 1024 * 1024)?,
                 "MAX_BODY_BYTES",
@@ -138,6 +141,41 @@ fn checked_nonzero_usize(value: u64, key: &str) -> Result<usize, ConfigError> {
     Ok(value)
 }
 
+fn checked_url_ttl(value: u64) -> Result<u64, ConfigError> {
+    if value == 0 {
+        return Err(ConfigError::new("URL_TTL_SECS must be greater than 0"));
+    }
+    if value > MAX_URL_TTL_SECS {
+        return Err(ConfigError::new(format!(
+            "URL_TTL_SECS must be <= {MAX_URL_TTL_SECS}"
+        )));
+    }
+    Ok(value)
+}
+
+fn signing_key(
+    configured: Option<String>,
+    storage_enabled: bool,
+    scheme: &str,
+) -> Result<Vec<u8>, ConfigError> {
+    let Some(key) = configured else {
+        if storage_enabled && scheme == "fs" {
+            return Err(ConfigError::new(
+                "SIGNING_KEY is required when fs storage is enabled",
+            ));
+        }
+        return Ok(uuid::Uuid::new_v4().as_bytes().to_vec());
+    };
+
+    let key = key.into_bytes();
+    if storage_enabled && scheme == "fs" && key.len() < MIN_SIGNING_KEY_BYTES {
+        return Err(ConfigError::new(format!(
+            "SIGNING_KEY must be at least {MIN_SIGNING_KEY_BYTES} bytes when fs storage is enabled"
+        )));
+    }
+    Ok(key)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -181,5 +219,40 @@ mod tests {
         m.clear();
         m.insert("MAX_CONCURRENT_RENDERS".into(), "0".into());
         assert!(Config::try_from_map(&m).is_err());
+    }
+
+    #[test]
+    fn rejects_invalid_url_ttl() {
+        let mut m = std::collections::HashMap::new();
+        m.insert("URL_TTL_SECS".into(), "0".into());
+        assert!(Config::try_from_map(&m).is_err());
+
+        m.insert("URL_TTL_SECS".into(), "604801".into());
+        assert!(Config::try_from_map(&m).is_err());
+    }
+
+    #[test]
+    fn fs_storage_requires_explicit_strong_signing_key() {
+        let mut m = std::collections::HashMap::new();
+        m.insert("STORAGE_ENABLED".into(), "true".into());
+        m.insert("OPENDAL_SCHEME".into(), "fs".into());
+        assert!(Config::try_from_map(&m).is_err());
+
+        m.insert("SIGNING_KEY".into(), "short".into());
+        assert!(Config::try_from_map(&m).is_err());
+
+        m.insert(
+            "SIGNING_KEY".into(),
+            "0123456789abcdef0123456789abcdef".into(),
+        );
+        assert!(Config::try_from_map(&m).is_ok());
+    }
+
+    #[test]
+    fn non_fs_storage_does_not_require_signing_key() {
+        let mut m = std::collections::HashMap::new();
+        m.insert("STORAGE_ENABLED".into(), "true".into());
+        m.insert("OPENDAL_SCHEME".into(), "s3".into());
+        assert!(Config::try_from_map(&m).is_ok());
     }
 }

@@ -95,8 +95,8 @@ See [`.env.example`](.env.example) for the full list.
 | `OPENDAL_SCHEME`     | `fs`                     | Storage backend: `fs`, `s3`, `gcs`, `azblob`, `memory` |
 | `OPENDAL_ROOT`       | `./storage`              | Backend root path (fs)                                 |
 | `PUBLIC_BASE_URL`    | `http://localhost:3000`  | Base URL used to build signed download links           |
-| `SIGNING_KEY`        | random per boot          | HMAC key for fs signed URLs (set this in production)   |
-| `URL_TTL_SECS`       | `3600`                   | Signed-URL lifetime                                    |
+| `SIGNING_KEY`        | random per boot          | HMAC key for fs signed URLs; required and at least 32 bytes when fs storage is enabled |
+| `URL_TTL_SECS`       | `3600`                   | Signed-URL lifetime, from `1` to `604800` seconds      |
 | `MAX_BODY_BYTES`     | `8388608`                | Outer request body cap                                 |
 | `MAX_HTML_BYTES`     | `2097152`                | `/v1/pdf` HTML cap (`413` over limit)                  |
 | `MAX_IMAGE_PAGES`    | `10`                     | `/v1/images` page cap                                  |
